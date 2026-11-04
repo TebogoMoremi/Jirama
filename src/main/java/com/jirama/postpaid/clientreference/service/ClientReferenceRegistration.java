@@ -10,9 +10,8 @@ public class ClientReferenceRegistration {
     private final ClientReferenceRepository repository;
 
     public ClientReferenceRegistration(
-        JiramaPostpaidClient partnerClient,
-        ClientReferenceRepository repository
-    ) {
+            JiramaPostpaidClient partnerClient,
+            ClientReferenceRepository repository) {
         this.partnerClient = partnerClient;
         this.repository = repository;
     }
@@ -29,30 +28,38 @@ public class ClientReferenceRegistration {
         JiramaCustomerDetails customer = partnerClient.lookupCustomer(billRef);
 
         return new Candidate(
-            msisdn,
-            billRef,
-            customer.clientNumber(),
-            customer.accountNumber()
-        );
+                msisdn,
+                billRef,
+                customer.clientNumber(),
+                customer.accountNumber());
     }
 
     public Candidate register(String msisdn, String billRef) {
         Candidate candidate = prepare(msisdn, billRef);
 
         repository.insertValidReference(
-            candidate.msisdn(),
-            candidate.accountNumber(),
-            candidate.clientNumber(),
-            candidate.billRef()
-        );
+                candidate.msisdn(),
+                candidate.accountNumber(),
+                candidate.clientNumber(),
+                candidate.billRef());
 
         return candidate;
     }
 
     public record Candidate(
-        String msisdn,
-        String billRef,
-        String clientNumber,
-        String accountNumber
-    ) {}
+            String msisdn,
+            String billRef,
+            String clientNumber,
+            String accountNumber) {
+    }
+
+    static void validateReferenceLengths(String clientRef, String billRef) {
+        if (clientRef == null || clientRef.isBlank() || clientRef.length() != 11) {
+            throw new IllegalArgumentException("clientRef must contain 11 characters");
+        }
+
+        if (billRef == null || billRef.isBlank() || billRef.length() != 15) {
+            throw new IllegalArgumentException("billRef must contain 15 characters");
+        }
+    }
 }
