@@ -1,5 +1,6 @@
 package com.jirama.postpaid.clientreference.controller;
 
+import com.jirama.postpaid.clientreference.partner.JiramaLookupResponseException;
 import com.jirama.postpaid.clientreference.service.ClientReferenceRegistration;
 import com.jirama.postpaid.clientreference.service.ClientReferenceRegistration.Candidate;
 import org.junit.jupiter.api.Test;
@@ -72,4 +73,15 @@ class ClientReferenceRegistrationControllerTest {
         mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content(REQUEST))
             .andExpect(status().isServiceUnavailable());
     }
+
+    @Test
+void returnsBadGatewayWhenPartnerResponseIsIncomplete() throws Exception {
+    when(registration.register("0300000004", "DEMO-INVOICE-004"))
+        .thenThrow(new JiramaLookupResponseException("Missing account number"));
+
+    mvc.perform(post(PATH)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(REQUEST))
+        .andExpect(status().isBadGateway());
+}
 }

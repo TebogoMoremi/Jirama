@@ -1,5 +1,7 @@
 package com.jirama.postpaid.clientreference.controller;
 
+import com.jirama.postpaid.clientreference.partner.JiramaLookupResponseException;
+import org.springframework.web.client.RestClientResponseException;
 import com.jirama.postpaid.clientreference.service.ClientReferenceRegistration;
 import com.jirama.postpaid.clientreference.service.ClientReferenceRegistration.Candidate;
 import org.springframework.context.annotation.Profile;
@@ -19,8 +21,7 @@ public class ClientReferenceRegistrationController {
     private final ClientReferenceRegistration registration;
 
     public ClientReferenceRegistrationController(
-        ClientReferenceRegistration registration
-    ) {
+            ClientReferenceRegistration registration) {
         this.registration = registration;
     }
 
@@ -30,22 +31,24 @@ public class ClientReferenceRegistrationController {
         if (request.msisdn() == null || request.msisdn().isBlank()
                 || request.billRef() == null || request.billRef().isBlank()) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "msisdn and billRef are required"
-            );
+                    HttpStatus.BAD_REQUEST, "msisdn and billRef are required");
         }
 
         try {
             return registration.register(request.msisdn(), request.billRef());
         } catch (DuplicateKeyException error) {
             throw new ResponseStatusException(
-                HttpStatus.CONFLICT, "Reference already registered"
-            );
+                    HttpStatus.CONFLICT, "Reference already registered");
         } catch (ResourceAccessException error) {
             throw new ResponseStatusException(
-                HttpStatus.SERVICE_UNAVAILABLE, "JIRAMA lookup unavailable"
-            );
+                    HttpStatus.SERVICE_UNAVAILABLE, "JIRAMA lookup unavailable");
+        } catch (RestClientResponseException | JiramaLookupResponseException error) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "JIRAMA returned an unusable lookup response");
         }
     }
 
-    public record RegistrationRequest(String msisdn, String billRef) {}
+    public record RegistrationRequest(String msisdn, String billRef) {
+    }
 }
