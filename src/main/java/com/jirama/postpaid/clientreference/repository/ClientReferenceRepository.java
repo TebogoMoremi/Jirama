@@ -68,4 +68,20 @@ public class ClientReferenceRepository {
 
         return matches != null && matches > 0;
     }
+    public boolean deactivateValidReference(String msisdn, String clientRef) {
+    int updatedRows = jdbcTemplate.update("""
+        UPDATE MB_JIR_REF_DETAILS
+        SET REF_STATUS = ?
+        WHERE MSISDN = ?
+          AND CLIENT_REF = ?
+          AND REF_STATUS = ?
+        """,
+        "UNVALID",
+        msisdn,
+        clientRef,
+        "VALID"
+    );
+
+    return updatedRows > 0;
+}
 }
