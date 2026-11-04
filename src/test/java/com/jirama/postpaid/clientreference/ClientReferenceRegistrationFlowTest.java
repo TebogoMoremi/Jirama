@@ -2,20 +2,17 @@ package com.jirama.postpaid.clientreference;
 
 import com.jirama.postpaid.clientreference.partner.JiramaCustomerDetails;
 import com.jirama.postpaid.clientreference.partner.JiramaPostpaidClient;
-import com.jirama.postpaid.clientreference.repository.ClientReferenceRepository;
-import com.jirama.postpaid.clientreference.service.ClientReferenceRegistration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,7 +22,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("local-registration")
-@Import(ClientReferenceRegistrationFlowTest.RegistrationTestConfig.class)
 @Transactional
 class ClientReferenceRegistrationFlowTest {
 
@@ -70,15 +66,31 @@ class ClientReferenceRegistrationFlowTest {
             ).value("DEMO-INVOICE-005"));
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class RegistrationTestConfig {
+    @Test
+    void leavesGetListEmptyWhenJiramaReturnsNotFound() throws Exception {
+        when(partnerClient.lookupCustomer("DEMO-INVOICE-UNKNOWN"))
+            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
-        @Bean
-        ClientReferenceRegistration registration(
-            JiramaPostpaidClient partnerClient,
-            ClientReferenceRepository repository
-        ) {
-            return new ClientReferenceRegistration(partnerClient, repository);
-        }
+        mvc.perform(post("/api/v1/postpaid/client-references/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"msisdn":"0300000009","billRef":"DEMO-INVOICE-UNKNOWN"}
+                    """))
+            .andExpect(status().isBadGateway());
+
+        mvc.perform(post("/api/v1/postpaid/client-references")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "mbJIRSetClientReferenceRequest": {
+                        "msisdn": "0300000009",
+                        "operationType": "getList"
+                      }
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath(
+                "$.mbJIRSetClientReferenceResponse.referenceList.length()"
+            ).value(0));
     }
 }
