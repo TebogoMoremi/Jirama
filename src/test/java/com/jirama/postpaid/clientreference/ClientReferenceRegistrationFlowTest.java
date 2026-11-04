@@ -34,63 +34,95 @@ class ClientReferenceRegistrationFlowTest {
     @Test
     void registersReferenceAndReturnsItThroughGetList() throws Exception {
         when(partnerClient.lookupCustomer("DEMO-INVOICE-005"))
-            .thenReturn(new JiramaCustomerDetails("12345678", "00123456789"));
+                .thenReturn(new JiramaCustomerDetails("12345678", "00123456789"));
 
         mvc.perform(post("/api/v1/postpaid/client-references/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"msisdn":"0300000005","billRef":"DEMO-INVOICE-005"}
-                    """))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.accountNumber").value("00123456789"));
+                        {"msisdn":"0300000005","billRef":"DEMO-INVOICE-005"}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accountNumber").value("00123456789"));
 
         mvc.perform(post("/api/v1/postpaid/client-references")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {
-                      "mbJIRSetClientReferenceRequest": {
-                        "msisdn": "0300000005",
-                        "operationType": "getList"
-                      }
-                    }
-                    """))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath(
-                "$.mbJIRSetClientReferenceResponse.referenceList.length()"
-            ).value(1))
-            .andExpect(jsonPath(
-                "$.mbJIRSetClientReferenceResponse.referenceList[0].clientRef"
-            ).value("00123456789"))
-            .andExpect(jsonPath(
-                "$.mbJIRSetClientReferenceResponse.referenceList[0].billRef"
-            ).value("DEMO-INVOICE-005"));
+                        {
+                          "mbJIRSetClientReferenceRequest": {
+                            "msisdn": "0300000005",
+                            "operationType": "getList"
+                          }
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList.length()").value(1))
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList[0].clientRef").value("00123456789"))
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList[0].billRef").value("DEMO-INVOICE-005"));
     }
 
     @Test
     void leavesGetListEmptyWhenJiramaReturnsNotFound() throws Exception {
         when(partnerClient.lookupCustomer("DEMO-INVOICE-UNKNOWN"))
-            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
         mvc.perform(post("/api/v1/postpaid/client-references/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"msisdn":"0300000009","billRef":"DEMO-INVOICE-UNKNOWN"}
-                    """))
-            .andExpect(status().isBadGateway());
+                        {"msisdn":"0300000009","billRef":"DEMO-INVOICE-UNKNOWN"}
+                        """))
+                .andExpect(status().isBadGateway());
 
         mvc.perform(post("/api/v1/postpaid/client-references")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {
-                      "mbJIRSetClientReferenceRequest": {
-                        "msisdn": "0300000009",
-                        "operationType": "getList"
-                      }
-                    }
-                    """))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath(
-                "$.mbJIRSetClientReferenceResponse.referenceList.length()"
-            ).value(0));
+                        {
+                          "mbJIRSetClientReferenceRequest": {
+                            "msisdn": "0300000009",
+                            "operationType": "getList"
+                          }
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList.length()").value(0));
+    }
+
+    @Test
+    void rejectsDuplicateRegistrationAndKeepsOneReference() throws Exception {
+        when(partnerClient.lookupCustomer("DEMO-INVOICE-005"))
+                .thenReturn(new JiramaCustomerDetails("12345678", "00123456789"));
+
+        String registrationRequest = """
+                {"msisdn":"0300000005","billRef":"DEMO-INVOICE-005"}
+                """;
+
+        mvc.perform(post("/api/v1/postpaid/client-references/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(registrationRequest))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/postpaid/client-references/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(registrationRequest))
+                .andExpect(status().isConflict());
+
+        mvc.perform(post("/api/v1/postpaid/client-references")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "mbJIRSetClientReferenceRequest": {
+                            "msisdn": "0300000005",
+                            "operationType": "getList"
+                          }
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList.length()").value(1))
+                .andExpect(jsonPath(
+                        "$.mbJIRSetClientReferenceResponse.referenceList[0].clientRef").value("00123456789"));
     }
 }
