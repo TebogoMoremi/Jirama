@@ -34,21 +34,38 @@ public class ClientReferenceRepository {
             "VALID"
         );
     }
+
     public void insertValidReference(
-    String msisdn,
-    String clientRef,
-    String clientNumber,
-    String billRef
-) {
-    jdbcTemplate.update("""
-        INSERT INTO MB_JIR_REF_DETAILS
-            (MSISDN, CLIENT_REF, CLIENT_NUM, BILL_REF, CREATION_DATE, REF_STATUS)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'VALID')
-        """,
-        msisdn,
-        clientRef,
-        clientNumber,
-        billRef
-    );
-}
+        String msisdn,
+        String clientRef,
+        String clientNumber,
+        String billRef
+    ) {
+        jdbcTemplate.update("""
+            INSERT INTO MB_JIR_REF_DETAILS
+                (MSISDN, CLIENT_REF, CLIENT_NUM, BILL_REF, CREATION_DATE, REF_STATUS)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'VALID')
+            """,
+            msisdn,
+            clientRef,
+            clientNumber,
+            billRef
+        );
+    }
+
+    public boolean existsValidByMsisdnAndClientRef(String msisdn, String clientRef) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM MB_JIR_REF_DETAILS
+            WHERE MSISDN = ?
+              AND CLIENT_REF = ?
+              AND REF_STATUS = ?
+            """;
+
+        Long matches = jdbcTemplate.queryForObject(
+            sql, Long.class, msisdn, clientRef, "VALID"
+        );
+
+        return matches != null && matches > 0;
+    }
 }
